@@ -1,22 +1,27 @@
 import numpy as np
 from tensorflow.keras.layers import Dense, Dropout, Input, Flatten, Add, Conv1D
 from tensorflow.keras.models import Sequential
-from sklearn.model_selection import KFold
+from sklearn.metrics import mean_absolute_percentage_error
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn import tree
+from sklearn.ensemble import RandomForestRegressor
 import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.python.keras.utils.vis_utils import plot_model
 from sklearn.model_selection import KFold
-from imblearn.over_sampling import SMOTE
+from sklearn.svm import SVR
+from sklearn.neighbors import KNeighborsRegressor
 
 plt.ion()
 lossarr = []
 accuarr = []
 sorce = []
-cvsorce = []
+cvsorce1 = []
+cvsorce2 = []
+cvsorce3 = []
+cvsorce4 = []
+cvsorce5 = []
 data_x = []
 data_y = []
 df = pd.read_csv('bmw.csv')
@@ -29,9 +34,27 @@ data_x = np.asarray(data_x)
 data_y = np.asarray(data_y)
 scale = MinMaxScaler(feature_range=(0, 1))
 data_x = scale.fit_transform(data_x)
+kf = KFold(n_splits=10, shuffle=True)
+# (x_train, x_test), (y_train, y_test) = np.split(data_x, [int(len(data_x) * 0.8)], axis=0), \
+#                                        np.split(data_y, [int(len(data_y) * 0.8)], axis=0)
 
-(x_train, x_test), (y_train, y_test) = np.split(data_x, [int(len(data_x) * 0.8)], axis=0), \
-                                       np.split(data_y, [int(len(data_y) * 0.8)], axis=0)
+########## Knn ##########
+for train_index, test_index in kf.split(data_x):
+    kng = KNeighborsRegressor(n_neighbors=5)
+    kng.fit(data_x[train_index], data_y[train_index])
+    prediction = kng.predict(data_x[test_index])
+    mape = mean_absolute_percentage_error(data_y[test_index], prediction)
+    cvsorce1.append(mape)
+
+########## SVR ##########
+for train_index, test_index in kf.split(data_x):
+    poly_svr = SVR(kernel='poly')
+    poly_svr.fit(data_x[train_index], data_y[train_index])
+    poly_predict = poly_svr.predict(data_x[test_index])
+    mape = mean_absolute_percentage_error(data_y[test_index], poly_predict)
+    cvsorce2.append(mape)
+
+########## Api_Function ##########
 input_shape = (None, 8)
 batch_size = 1
 kernel_size = 3
@@ -42,79 +65,47 @@ kernel_size1 = 3
 pool_size1 = 1
 filters1 = 32
 
-model = Sequential()
-# model.add(Dense(5, input_shape=(8,)))
-# model.add(Dense(1))
-# model.summary()
-# model.compile(loss='mean_absolute_percentage_error', optimizer='adam', metrics=['mape'])
-# history =model.fit(x_train, y_train, batch_size=1, epochs=100, verbose=1)
-# sorce = model.evaluate(x_test, y_test, batch_size=1, verbose=0)
-# print(sorce)
+for train_index, test_index in kf.split(data_x):
+    model = Sequential()
 
-# # for train, test in kfold.split(data_x, data_y):
-# # x_res, y_res = SMOTE(random_state=42).fit_resample(x_train, y_train)
-#
-# # x_train = np.concatenate(x_train, x_res)
-# # print("now = ", x_train.shape)
+    inputs = Input(shape=(8,))
+    x = Dense(16, activation='relu')(inputs)
+    x = Dropout(dropout)(x)
 
-model = Sequential()
-inputs = Input(shape=(8,))
+    y = Dense(128, activation='relu')(inputs)
+    y = Dropout(dropout)(y)
+    y = Dense(16, activation='relu')(y)
+    y = Dropout(dropout)(y)
 
-x = Dense(64, activation='relu')(inputs)
-x = Dropout(dropout)(x)
-x = Dense(32, activation='relu')(x)
-x = Dropout(dropout)(x)
-y = Dense(128, activation='relu')(inputs)
-y = Dropout(dropout)(y)
-y = Dense(64, activation='relu')(y)
-y = Dropout(dropout)(y)
-y = Dense(32, activation='relu')(y)
-y = Dropout(dropout)(y)
+    z = Add()([x, y])
+    z = Flatten()(z)
+    z = Dropout(dropout)(z)
+    outputs = Dense(1, activation='relu')(z)
 
-z = Add()([x, y])
+    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    model.compile(loss='mean_absolute_percentage_error', optimizer='adam', metrics=['mape'])
+    history = model.fit(data_x[train_index], data_y[train_index], batch_size=1, epochs=100, verbose=1)
+    sorce = model.evaluate(data_x[test_index], data_y[test_index], batch_size=1, verbose=0)
+    cvsorce3.append(sorce)
 
-z = Flatten()(z)
-z = Dropout(dropout)(z)
-outputs = Dense(1, activation='relu')(z)
-model = tf.keras.Model(inputs=inputs, outputs=outputs)
-model.compile(loss='mean_absolute_percentage_error', optimizer='adam', metrics=['mape'])
-history =model.fit(x_train, y_train, batch_size=3, epochs=100, verbose=1)
-sorce = model.evaluate(x_test, y_test, batch_size=1, verbose=0)
+########## Decision Tree ##########
+for train_index, test_index in kf.split(data_x):
+    clf = tree.DecisionTreeRegressor()
+    clf = clf.fit(data_x[train_index], data_y[train_index])
+    pre = clf.predict(data_x[test_index])
+    mape = mean_absolute_percentage_error(data_y[test_index], pre)
+    cvsorce4.append(mape)
 
-# for i in range(40):
-#     # model.add(Dense(5, input_shape=(13,)))
-#     # model.add(Dropout(0.1))
-#     # model.add(Dense(5))
-#     # model.add(Dropout(0.1))
-#     # model.add(Dense(5))
-#     # model.add(Dropout(0.1))
-#     # model.add(Dense(5, activation='softmax'))
-#     # model.summary()
-#     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-#     # plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
-#
-#     history =model.fit(x_train, y_train, batch_size=1, epochs=1, verbose=1)
-#     sorce = model.evaluate(x_test, y_test, batch_size=1, verbose=0)
-#     lossarr.append(history.history['loss'][0])
-#     accuarr.append(history.history['accuracy'][0])
-#     plt.subplot(211)
-#     plt.cla()
-#     plt.plot(lossarr, label='loss value')
-#     plt.title('learning curse')
-#     plt.ylabel("loss")
-#     plt.xlabel("epochs")
-#     plt.legend()
-#
-#     plt.subplot(212)
-#     plt.cla()
-#     plt.plot(accuarr, label='accuracy value')
-#     plt.title('learning curse')
-#     plt.ylabel("accuracy")
-#     plt.xlabel("epochs")
-#     plt.legend()
-#
-#     plt.show()
-#     plt.pause(0.01)
-#     # cvsorce.append(sorce[1]*100)
-#     # print(np.mean(cvsorce))
-print(sorce)
+########## Random Forest Regression ##########
+for train_index, test_index in kf.split(data_x):
+    regression = RandomForestRegressor(n_estimators=10, random_state=0)
+    regression.fit(data_x[train_index], data_y[train_index])
+    pred = regression.predict(data_x[test_index])
+    mape = mean_absolute_percentage_error(data_y[test_index], pred)
+    cvsorce5.append(mape)
+
+print("Knn = ", np.mean(cvsorce1))
+print('SVR = ', np.mean(cvsorce2))
+print('Api_Function = ', np.mean(cvsorce3))
+print('Decision Tree = ', np.mean(cvsorce4))
+print(' Random Forest Regression = ', np.mean(cvsorce5))
