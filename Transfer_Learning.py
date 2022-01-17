@@ -130,6 +130,33 @@ def plot_residuals(y: object, y_pred: object, model_name: object) -> object:
 
     plt.savefig(save_path + '/Res_' + model_name + '.png')
 
+
+def membership_function(data, ranges):
+    zz = None
+    for j in range(len(data[0])):
+        data_array = []
+        for i in data[:, j]:
+            if i <= ranges[0]:
+                data_array.append([1, 0, 0])
+            if ranges[0] < i < ranges[1]:
+                data_array.append(
+                    [((0 - 1) / (ranges[1] - ranges[0])) * (i - ranges[0]) + 1, ((1 - 0) / (ranges[1] - ranges[0])) *
+                     (i - ranges[0]), 0])
+            if i == ranges[1]:
+                data_array.append([0, 1, 0])
+            if ranges[1] < i < ranges[2]:
+                data_array.append(
+                    [0, ((0 - 1) / (ranges[2] - ranges[1])) * (i - ranges[1]) + 1, ((1 - 0) / (ranges[2] - ranges[1])) *
+                     (i - ranges[1])])
+            if i >= ranges[2]:
+                data_array.append([0, 0, 1])
+        if zz is None:
+            zz = data_array
+        else:
+            zz = np.hstack((zz, data_array))
+    return zz
+
+
 global data_x, data_y
 
 pre_x = []
@@ -144,8 +171,6 @@ df['model'] = labelencoder.fit_transform(df['model'])
 df['transmission'] = labelencoder.fit_transform(df['transmission'])
 df['fuelType'] = labelencoder.fit_transform(df['fuelType'])
 
-
-
 data = df.values
 data = data.astype('float')
 data_x1, data_y, data_x2 = np.hsplit(data, [2, 3])
@@ -159,9 +184,7 @@ data_y = data_y.reshape(-1, )
 
 def run(sol):
     global data_x, data_y
-    for i in range(8):
-        data_x[i, :] = trimf(data_x[i, :], [sol[0], sol[0] + sol[1], sol[0] + sol[1] + sol[2]])
-
+    data_x = membership_function(data_x, [sol[0], sol[0]+sol[1], sol[0]+sol[1]+sol[2]])
     pre_x = data_x[0: 5000]
     pre_y = data_y[0: 5000]
 
@@ -176,22 +199,20 @@ def run(sol):
 
     base_model = Sequential()
 
-    inputs = Input(shape=(8, 1))
+    inputs = Input(shape=(24, 1))
 
-    x = Conv1D(filters=128, kernel_size=3, activation='relu')(inputs)
+    x = Conv1D(filters=64, kernel_size=1, activation='relu')(inputs)
     x = MaxPool1D(1)(x)
-    x = Conv1D(filters=128, kernel_size=3, activation='relu')(x)
+    x = Conv1D(filters=64, kernel_size=1, activation='relu')(x)
     x = MaxPool1D(1)(x)
-    x = Conv1D(filters=128, kernel_size=3, activation='relu')(x)
+    x = Conv1D(filters=64, kernel_size=1, activation='relu')(x)
     x = MaxPool1D(1)(x)
     x = Dropout(0.2)(x)
-    x = Flatten()(x)
 
-    y = Dense(32, activation='relu')(inputs)
+    y = Dense(64, activation='relu')(inputs)
     y = Dropout(0.2)(y)
-    y = Dense(32, activation='relu')(y)
+    y = Dense(64, activation='relu')(y)
     y = Dropout(0.2)(y)
-    y = Flatten()(y)
     z = Add()([x, y])
     z = Flatten()(z)
     z = Dense(8, activation='relu')(z)
@@ -234,12 +255,13 @@ def run(sol):
 
 
 class My_Problem(Problem):
-    def __init__(self, dimension, lower=0, upper=100):
+    def __init__(self, dimension, lower=0, upper=1):
         Problem.__init__(self, dimension, lower, upper)
         self.best_score = 0
         self.best_history = []
         self.best_predict = []
         self.test = []
+
     def _evaluate(self, sol):
         val, history, predict, test = run(sol)
         self.test = np.copy(test)
