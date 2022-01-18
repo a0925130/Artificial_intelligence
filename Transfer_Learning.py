@@ -159,10 +159,6 @@ def membership_function(data, ranges):
 
 global data_x, data_y
 
-pre_x = []
-pre_y = []
-train_x = []
-train_y = []
 test_x = []
 test_y = []
 df = pd.read_csv('bmw.csv')
@@ -184,19 +180,18 @@ data_y = data_y.reshape(-1, )
 
 def run(sol):
     global data_x, data_y
-    data_x = membership_function(data_x, [sol[0], sol[0]+sol[1], sol[0]+sol[1]+sol[2]])
-    pre_x = data_x[0: 5000]
+    data_x_fuzzy = membership_function(data_x, [sol[0], sol[0]+sol[1], sol[0]+sol[1]+sol[2]])
+    pre_x = data_x_fuzzy[0: 5000]
     pre_y = data_y[0: 5000]
 
-    train_x = data_x[5000: 9000]
+    train_x = data_x_fuzzy[5000: 9000]
     train_y = data_y[5000: 9000]
 
     # test_train_x = data_x[0: 9000]
     # test_train_y = data_y[0: 9000]
 
-    test_x = data_x[9000:]
+    test_x = data_x_fuzzy[9000:]
     test_y = data_y[9000:]
-
     base_model = Sequential()
 
     inputs = Input(shape=(24, 1))
@@ -232,25 +227,21 @@ def run(sol):
     x = Dense(2)(x)
     outputs = Dense(1)(x)
     model = Model(inputs=base_model.inputs, outputs=outputs)
-    model.summary()
 
     model.compile(loss='mse', optimizer='adam', metrics=['mse'])
     model.fit(train_x, train_y, epochs=10, batch_size=32, verbose=1)
 
-    # for layer in model.layers[:3]:
-    #     layer.trainable = False
-    # for layer in model.layers[3:]:
-    #     layer.trainable = True*
     for layer in model.layers:
         layer.trainable = True
 
-    model.summary()
     initial_learning_rate = 1e-5
     # model.compile(loss='mse', optimizer='adam', metrics=['mse'])
+    model.summary()
     model.compile(optimizer=Adam(learning_rate=initial_learning_rate), loss='mse', metrics=["mse"])
     history = model.fit(train_x, train_y, batch_size=32, epochs=100, validation_data=[test_x, test_y], verbose=1)
     predict = model.predict(test_x)
     score = r2_score(test_y, predict)
+    tf.keras.backend.clear_session()
     return score, history, predict, test_y
 
 
