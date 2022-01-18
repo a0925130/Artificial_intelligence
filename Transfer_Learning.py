@@ -18,7 +18,7 @@ from skfuzzy.membership import trimf
 from niapy.task import Task, OptimizationType
 from niapy.problems import Problem
 from niapy.algorithms.basic import OppositionVelocityClampingParticleSwarmOptimization
-
+from sklearn.model_selection import KFold
 save_path = 'D:\Artificial_intelligence'
 
 
@@ -133,81 +133,51 @@ def plot_residuals(y: object, y_pred: object, model_name: object) -> object:
 
 def membership_function(data, ranges):
     zz = None
-    for j in range(len(data[0])):
+    data_fuzzy = np.copy(data)
+    for j in range(len(data_fuzzy[0])):
         data_array = []
-        for i in data[:, j]:
+        for i in data_fuzzy[:, j]:
             if i <= ranges[0]:
                 data_array.append([1, 0, 0])
-            if ranges[0] < i < ranges[1]:
+            elif ranges[0] < i < ranges[1]:
                 data_array.append(
                     [((0 - 1) / (ranges[1] - ranges[0])) * (i - ranges[0]) + 1, ((1 - 0) / (ranges[1] - ranges[0])) *
                      (i - ranges[0]), 0])
-            if i == ranges[1]:
+            elif i == ranges[1]:
                 data_array.append([0, 1, 0])
-            if ranges[1] < i < ranges[2]:
+            elif ranges[1] < i < ranges[2]:
                 data_array.append(
                     [0, ((0 - 1) / (ranges[2] - ranges[1])) * (i - ranges[1]) + 1, ((1 - 0) / (ranges[2] - ranges[1])) *
                      (i - ranges[1])])
-            if i >= ranges[2]:
+            else:
                 data_array.append([0, 0, 1])
         if zz is None:
             zz = data_array
         else:
             zz = np.hstack((zz, data_array))
-    return zz
+    zz1 = np.copy(zz)
+    return zz1
 
 
-global data_x, data_y
-
-test_x = []
-test_y = []
-df = pd.read_csv('bmw.csv')
-labelencoder = LabelEncoder()
-df['model'] = labelencoder.fit_transform(df['model'])
-df['transmission'] = labelencoder.fit_transform(df['transmission'])
-df['fuelType'] = labelencoder.fit_transform(df['fuelType'])
-
-data = df.values
-data = data.astype('float')
-data_x1, data_y, data_x2 = np.hsplit(data, [2, 3])
-data_x = np.hstack([data_x1, data_x2])
-scalex = MinMaxScaler(feature_range=(0, 1))
-data_x = scalex.fit_transform(data_x)
-scaley = MinMaxScaler(feature_range=(0, 1))
-data_y = scaley.fit_transform(data_y)
-data_y = data_y.reshape(-1, )
-
-
-def run(sol):
-    global data_x, data_y
-    data_x_fuzzy = membership_function(data_x, [sol[0], sol[0]+sol[1], sol[0]+sol[1]+sol[2]])
-    pre_x = data_x_fuzzy[0: 5000]
-    pre_y = data_y[0: 5000]
-
-    train_x = data_x_fuzzy[5000: 9000]
-    train_y = data_y[5000: 9000]
-
-    # test_train_x = data_x[0: 9000]
-    # test_train_y = data_y[0: 9000]
-
-    test_x = data_x_fuzzy[9000:]
-    test_y = data_y[9000:]
+def trensfer_learning_model(pre_x, pre_y, train_x_t, train_y_t):
     base_model = Sequential()
-
     inputs = Input(shape=(24, 1))
 
-    x = Conv1D(filters=64, kernel_size=1, activation='relu')(inputs)
+    x = Conv1D(filters=96, kernel_size=3, activation='relu')(inputs)
     x = MaxPool1D(1)(x)
-    x = Conv1D(filters=64, kernel_size=1, activation='relu')(x)
+    x = Conv1D(filters=96, kernel_size=3, activation='relu')(x)
     x = MaxPool1D(1)(x)
-    x = Conv1D(filters=64, kernel_size=1, activation='relu')(x)
+    x = Conv1D(filters=96, kernel_size=3, activation='relu')(x)
     x = MaxPool1D(1)(x)
+    x = Flatten()(x)
     x = Dropout(0.2)(x)
 
-    y = Dense(64, activation='relu')(inputs)
+
+    y = Dense(72, activation='relu')(inputs)
     y = Dropout(0.2)(y)
-    y = Dense(64, activation='relu')(y)
+    y = Dense(72, activation='relu')(y)
     y = Dropout(0.2)(y)
+    y = Flatten()(y)
     z = Add()([x, y])
     z = Flatten()(z)
     z = Dense(8, activation='relu')(z)
@@ -215,7 +185,7 @@ def run(sol):
 
     base_model = tf.keras.Model(inputs=inputs, outputs=outputs)
     base_model.compile(loss='mse', optimizer='adam', metrics=['mse'])
-    base_model.fit(pre_x, pre_y, batch_size=32, epochs=10, verbose=1)
+    base_model.fit(pre_x, pre_y, batch_size=32, epochs=100, verbose=0)
 
     for layer in base_model.layers:
         layer.trainable = False
@@ -229,20 +199,51 @@ def run(sol):
     model = Model(inputs=base_model.inputs, outputs=outputs)
 
     model.compile(loss='mse', optimizer='adam', metrics=['mse'])
-    model.fit(train_x, train_y, epochs=10, batch_size=32, verbose=1)
+    model.fit(train_x_t, train_y_t, epochs=100, batch_size=32, verbose=0)
 
     for layer in model.layers:
         layer.trainable = True
-
     initial_learning_rate = 1e-5
-    # model.compile(loss='mse', optimizer='adam', metrics=['mse'])
-    model.summary()
     model.compile(optimizer=Adam(learning_rate=initial_learning_rate), loss='mse', metrics=["mse"])
-    history = model.fit(train_x, train_y, batch_size=32, epochs=100, validation_data=[test_x, test_y], verbose=1)
-    predict = model.predict(test_x)
-    score = r2_score(test_y, predict)
+
+    return model
+
+
+df = pd.read_csv('bmw.csv')
+labelencoder = LabelEncoder()
+df['model'] = labelencoder.fit_transform(df['model'])
+df['transmission'] = labelencoder.fit_transform(df['transmission'])
+df['fuelType'] = labelencoder.fit_transform(df['fuelType'])
+
+data1 = df.values
+data1 = data1.astype('float')
+data_x1, data_y, data_x2 = np.hsplit(data1, [2, 3])
+data_x = np.hstack([data_x1, data_x2])
+scalex = MinMaxScaler(feature_range=(0, 1))
+data_x = scalex.fit_transform(data_x)
+scaley = MinMaxScaler(feature_range=(0, 1))
+data_y = scaley.fit_transform(data_y)
+data_y = data_y.reshape(-1, )
+
+c = 0
+def run(sol):
     tf.keras.backend.clear_session()
-    return score, history, predict, test_y
+    global train_x, train_y, c
+    c += 1
+    data_x_fuzzy = membership_function(train_x, [sol[0], sol[0] + sol[1], sol[0] + sol[1] + sol[2]])
+    pre_x_r, train_x_r, test_x_r = data_x_fuzzy[0: int(len(data_x_fuzzy) * 0.5)], \
+                                   data_x_fuzzy[int(len(data_x_fuzzy) * 0.5): int(len(data_x_fuzzy) * 0.8)], \
+                                   data_x_fuzzy[int(len(data_x_fuzzy) * 0.8)::]
+    pre_y_r, train_y_r, test_y_r = train_y[0: int(len(train_y) * 0.5)], \
+                                   train_y[int(len(train_y) * 0.5): int(len(train_y) * 0.8)], \
+                                   train_y[int(len(train_y) * 0.8)::]
+    model = trensfer_learning_model(pre_x_r, pre_y_r, train_x_r, train_y_r)
+
+    his = model.fit(train_x_r, train_y_r, batch_size=32, epochs=500, validation_data=[test_x_r, test_y_r], verbose=0)
+    predict = model.predict(test_x_r)
+    score = r2_score(test_y_r, predict)
+    print(c)
+    return score, model, his
 
 
 class My_Problem(Problem):
@@ -250,28 +251,86 @@ class My_Problem(Problem):
         Problem.__init__(self, dimension, lower, upper)
         self.best_score = 0
         self.best_history = []
-        self.best_predict = []
-        self.test = []
+        self.best_model = []
 
     def _evaluate(self, sol):
-        val, history, predict, test = run(sol)
-        self.test = np.copy(test)
+        val, model_n, his = run(sol)
         if self.best_score < val:
             self.best_score = val
-            self.best_history = np.copy(history)
-            self.best_predict = np.copy(predict)
+            self.best_model = model_n
+            self.best_history = his
         return val
 
 
 my_problem = My_Problem(dimension=3)
 iteration = 20
 particle = 5
+kf = KFold(n_splits=10, shuffle=True)
 
-task = Task(problem=my_problem, max_iters=iteration, optimization_type=OptimizationType.MAXIMIZATION,
-            enable_logging=True)
-algo = OppositionVelocityClampingParticleSwarmOptimization(population_size=particle)
-best = algo.run(task)
+for train_idx, test_idx in kf.split(data_x):
+    global train_x, train_y
+    train_x, test_x = data_x[train_idx], data_x[test_idx]
+    train_y, test_y = data_y[train_idx], data_y[test_idx]
 
-# plot_history(my_problem.best_history, 'Transfer_learning')
-plot_pred(my_problem.test, my_problem.best_predict, 'Transfer_learning')
-plot_residuals(my_problem.test, my_problem.best_predict, 'Transfer_learning')
+    task = Task(problem=my_problem, max_iters=iteration, optimization_type=OptimizationType.MAXIMIZATION,
+                enable_logging=True)
+    algo = OppositionVelocityClampingParticleSwarmOptimization(population_size=particle)
+    best = algo.run(task)
+
+    train_data_fuzzy = membership_function(train_x, best[0])
+    test_data_fuzzy = membership_function(test_x, best[0])
+    pre_x, train_x = train_data_fuzzy[0: int(len(train_data_fuzzy) * 0.8)], \
+                     train_data_fuzzy[int(len(train_data_fuzzy) * 0.8)::]
+    pre_y, train_y = train_y[0: int(len(train_y) * 0.8)], train_y[int(len(train_y) * 0.8)::]
+
+    base_model = Sequential()
+    inputs = Input(shape=(24, 1))
+
+    x = Conv1D(filters=96, kernel_size=3, activation='relu')(inputs)
+    x = MaxPool1D(1)(x)
+    x = Conv1D(filters=96, kernel_size=3, activation='relu')(x)
+    x = MaxPool1D(1)(x)
+    x = Conv1D(filters=96, kernel_size=3, activation='relu')(x)
+    x = MaxPool1D(1)(x)
+    x = Dropout(0.2)(x)
+    x = Flatten()(x)
+
+    y = Dense(72, activation='relu')(inputs)
+    y = Dropout(0.2)(y)
+    y = Dense(72, activation='relu')(y)
+    y = Dropout(0.2)(y)
+    y = Flatten()(y)
+    z = Add()([x, y])
+    z = Flatten()(z)
+    z = Dense(8, activation='relu')(z)
+    outputs = Dense(1, activation='relu')(z)
+
+    base_model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    base_model.compile(loss='mse', optimizer='adam', metrics=['mse'])
+    base_model.fit(pre_x, pre_y, batch_size=32, epochs=100, verbose=1)
+
+    for layer in base_model.layers:
+        layer.trainable = False
+
+    base_model1 = base_model.layers[-2].output
+    x = base_model1
+    x = Dense(8)(x)
+    x = Dense(4)(x)
+    x = Dense(2)(x)
+    outputs = Dense(1)(x)
+    model = Model(inputs=base_model.inputs, outputs=outputs)
+
+    model.compile(loss='mse', optimizer='adam', metrics=['mse'])
+    model.fit(train_x, train_y, epochs=100, batch_size=32, verbose=1)
+
+    for layer in model.layers:
+        layer.trainable = True
+    initial_learning_rate = 1e-5
+    model.compile(optimizer=Adam(learning_rate=initial_learning_rate), loss='mse', metrics=["mse"])
+    his = model.fit(train_x, train_y, batch_size=32, epochs=500, validation_data=[test_x, test_y], verbose=1)
+    predict = model.predict(test_x)
+    print(predict.shape)
+    print(test_y.shape)
+    plot_history(his, 'Transfer_learning')
+    plot_pred(test_y, predict, 'Transfer_learning')
+    plot_residuals(test_y, predict, 'Transfer_learning')
