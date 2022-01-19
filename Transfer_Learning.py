@@ -185,7 +185,7 @@ def trensfer_learning_model(pre_x, pre_y, train_x_t, train_y_t):
 
     base_model = tf.keras.Model(inputs=inputs, outputs=outputs)
     base_model.compile(loss='mse', optimizer='adam', metrics=['mse'])
-    base_model.fit(pre_x, pre_y, batch_size=32, epochs=100, verbose=0)
+    base_model.fit(pre_x, pre_y, batch_size=32, epochs=20, verbose=1)
 
     for layer in base_model.layers:
         layer.trainable = False
@@ -199,7 +199,7 @@ def trensfer_learning_model(pre_x, pre_y, train_x_t, train_y_t):
     model = Model(inputs=base_model.inputs, outputs=outputs)
 
     model.compile(loss='mse', optimizer='adam', metrics=['mse'])
-    model.fit(train_x_t, train_y_t, epochs=100, batch_size=32, verbose=0)
+    model.fit(train_x_t, train_y_t, epochs=20, batch_size=32, verbose=1)
 
     for layer in model.layers:
         layer.trainable = True
@@ -239,7 +239,7 @@ def run(sol):
                                    train_y[int(len(train_y) * 0.8)::]
     model = trensfer_learning_model(pre_x_r, pre_y_r, train_x_r, train_y_r)
 
-    his = model.fit(train_x_r, train_y_r, batch_size=32, epochs=500, validation_data=[test_x_r, test_y_r], verbose=0)
+    his = model.fit(train_x_r, train_y_r, batch_size=32, epochs=200, validation_data=[test_x_r, test_y_r], verbose=1)
     predict = model.predict(test_x_r)
     score = r2_score(test_y_r, predict)
     print(c)
@@ -266,7 +266,7 @@ my_problem = My_Problem(dimension=3)
 iteration = 20
 particle = 5
 kf = KFold(n_splits=10, shuffle=True)
-
+count=0
 for train_idx, test_idx in kf.split(data_x):
     global train_x, train_y
     train_x, test_x = data_x[train_idx], data_x[test_idx]
@@ -307,7 +307,7 @@ for train_idx, test_idx in kf.split(data_x):
 
     base_model = tf.keras.Model(inputs=inputs, outputs=outputs)
     base_model.compile(loss='mse', optimizer='adam', metrics=['mse'])
-    base_model.fit(pre_x, pre_y, batch_size=32, epochs=100, verbose=1)
+    base_model.fit(pre_x, pre_y, batch_size=32, epochs=20, verbose=1)
 
     for layer in base_model.layers:
         layer.trainable = False
@@ -321,16 +321,18 @@ for train_idx, test_idx in kf.split(data_x):
     model = Model(inputs=base_model.inputs, outputs=outputs)
 
     model.compile(loss='mse', optimizer='adam', metrics=['mse'])
-    model.fit(train_x, train_y, epochs=100, batch_size=32, verbose=1)
+    model.fit(train_x, train_y, epochs=20, batch_size=32, verbose=1)
 
     for layer in model.layers:
         layer.trainable = True
     initial_learning_rate = 1e-5
     model.compile(optimizer=Adam(learning_rate=initial_learning_rate), loss='mse', metrics=["mse"])
-    his = model.fit(train_x, train_y, batch_size=32, epochs=500, validation_data=[test_x, test_y], verbose=1)
+    his = model.fit(train_x, train_y, batch_size=32, epochs=200, validation_data=[test_x, test_y], verbose=1)
     predict = model.predict(test_x)
-    print(predict.shape)
-    print(test_y.shape)
+    predict = predict.reshape(-1,)
     plot_history(his, 'Transfer_learning')
     plot_pred(test_y, predict, 'Transfer_learning')
     plot_residuals(test_y, predict, 'Transfer_learning')
+    count += 1
+    if count >= 3:
+        break
