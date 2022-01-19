@@ -239,7 +239,7 @@ def run(sol):
                                    train_y[int(len(train_y) * 0.8)::]
     model = trensfer_learning_model(pre_x_r, pre_y_r, train_x_r, train_y_r)
 
-    his = model.fit(train_x_r, train_y_r, batch_size=32, epochs=200, validation_data=[test_x_r, test_y_r], verbose=1)
+    his = model.fit(train_x_r, train_y_r, batch_size=32, epochs=100, validation_data=[test_x_r, test_y_r], verbose=1)
     predict = model.predict(test_x_r)
     score = r2_score(test_y_r, predict)
     print(c)
@@ -277,8 +277,8 @@ for train_idx, test_idx in kf.split(data_x):
     algo = OppositionVelocityClampingParticleSwarmOptimization(population_size=particle)
     best = algo.run(task)
 
-    train_data_fuzzy = membership_function(train_x, best[0])
-    test_data_fuzzy = membership_function(test_x, best[0])
+    train_data_fuzzy = membership_function(train_x, [best[0][0], best[0][0]+best[0][1], best[0][0]+best[0][1]+best[0][2]])
+    test_data_fuzzy = membership_function(test_x, [best[0][0], best[0][0]+best[0][1], best[0][0]+best[0][1]+best[0][2]])
     pre_x, train_x = train_data_fuzzy[0: int(len(train_data_fuzzy) * 0.8)], \
                      train_data_fuzzy[int(len(train_data_fuzzy) * 0.8)::]
     pre_y, train_y = train_y[0: int(len(train_y) * 0.8)], train_y[int(len(train_y) * 0.8)::]
@@ -327,7 +327,7 @@ for train_idx, test_idx in kf.split(data_x):
         layer.trainable = True
     initial_learning_rate = 1e-5
     model.compile(optimizer=Adam(learning_rate=initial_learning_rate), loss='mse', metrics=["mse"])
-    his = model.fit(train_x, train_y, batch_size=32, epochs=200, validation_data=[test_x, test_y], verbose=1)
+    his = model.fit(train_x, train_y, batch_size=32, epochs=100, validation_data=[test_x, test_y], verbose=1)
     predict = model.predict(test_x)
     predict = predict.reshape(-1,)
     plot_history(his, 'Transfer_learning')
