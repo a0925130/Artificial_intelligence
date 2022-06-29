@@ -239,8 +239,8 @@ iteration = 20
 particle = 5
 kf = KFold(n_splits=10, shuffle=True)
 count_kfold = 0
-fitness_arr = []
-count_arr = []
+predict_array = []
+test_array = []
 for train_idx, test_idx in kf.split(data_x):
     global train_x, train_y
     train_x, test_x = data_x[train_idx], data_x[test_idx]
@@ -250,12 +250,6 @@ for train_idx, test_idx in kf.split(data_x):
                 enable_logging=True)
     algo = GreyWolfOptimizer(population_size=particle)
     best = algo.run(task)
-    if count_kfold == 0:
-        fitness_arr = np.copy(my_problem.fitness_array)
-        count_arr = np.copy(my_problem.count_array)
-    else:
-        for i in range(len(fitness_arr)):
-            fitness_arr[i] += my_problem.fitness_array[i]
     train_data_fuzzy = membership_function(train_x, [best[0][0], best[0][0]+best[0][1], best[0][0]+best[0][1]+best[0][2]])
     test_data_fuzzy = membership_function(test_x, [best[0][0], best[0][0]+best[0][1], best[0][0]+best[0][1]+best[0][2]])
     pre_x, train_x = train_data_fuzzy[0: int(len(train_data_fuzzy) * 0.8)], \
@@ -286,17 +280,13 @@ for train_idx, test_idx in kf.split(data_x):
     nn_test = nn_test.T
     predict = model.predict(nn_test)
     predict = predict.reshape(-1, )
-    np.savez('TL_data' + str(count_kfold), history=np.array(his.history), predict=predict, test_data=test_y)
-    plot_history(his, 'Transfer_learning' + str(count_kfold))
-    plot_pred(test_y, predict, 'Transfer_learning' + str(count_kfold))
-    plot_residuals(test_y, predict, 'Transfer_learning' + str(count_kfold))
-    count_kfold += 1
-    if count_kfold >= 3:
-        break
+    predict = scaley.inverse_transform(predict)
+    test_y = scaley.inverse_transform(test_y)
+    predict_array.append(predict)
+    test_array.append(test_y)
 
-fitness_arr = fitness_arr/3
-plt.plot(count_arr, fitness_arr, linewidth=1)
-np.save('TL_fitness_array', fitness_arr)
+plot_pred(test_array, predict_array, 'TL_CSO' + str(count_kfold))
+plot_residuals(test_array, predict_array, 'TL_CSO' + str(count_kfold))
 plt.xlabel('Evaluation')
 plt.ylabel('Fitness Value')
 plt.title('Learning Curve')
