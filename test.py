@@ -10,7 +10,6 @@ from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import LabelEncoder
 
-
 plt.ion()
 lossarr = []
 accuarr = []
@@ -45,10 +44,10 @@ save_path = 'D:\Artificial_intelligence'
 
 
 def score_calculation(y, y_pred):
-    MAE = np.round(mean_absolute_error(y, y_pred), 5)
-    RMSE = np.round(np.sqrt(mean_squared_error(y, y_pred)), 5)
-    R2_Score = np.round(r2_score(y, y_pred), 5)
-    MSE = np.round(mean_squared_error(y, y_pred), 5)
+    MAE = np.round(mean_absolute_error(y, y_pred), 4)
+    RMSE = np.round(np.sqrt(mean_squared_error(y, y_pred)), 4)
+    R2_Score = np.round(r2_score(y, y_pred), 4)
+    MSE = np.round(mean_squared_error(y, y_pred), 4)
 
     print('MSE: ' + str(MSE))
     print('MAE: ' + str(MAE))
@@ -62,8 +61,8 @@ def plot_pred(y, y_pred, model_name):
     residuals = y_pred - y
     res_abs = np.abs(residuals)
 
-    th_1 = 0.025  # Define this value in your case
-    th_2 = 0.05  # Define this value in your case
+    th_1 = 0.5  # Define this value in your case
+    th_2 = 1  # Define this value in your case
     r1_idx = np.where(res_abs <= th_1)
     r2_idx = np.where((res_abs > th_1) & (res_abs <= th_2))
     r3_idx = np.where(res_abs > th_2)
@@ -86,27 +85,31 @@ def plot_pred(y, y_pred, model_name):
     plt.xlabel('Actual Value')
     plt.ylabel('Predicted Value')
     info_show = 'MSE: ' + str(MSE) + '\n' \
-                'MAE: ' + str(MAE) + '\n' \
-                'RMSE: ' + str(RMSE) + '\n' \
-                'R2 Score: ' + str(R2_Score) + '\n'
-    plt.text(0.8, 0.1, info_show, ha='left', va='center', transform=ax.transAxes)
+                                     'MAE: ' + str(MAE) + '\n' \
+                                                          'RMSE: ' + str(RMSE) + '\n' \
+                                                                                 'R2 Score: ' + str(R2_Score) + '\n'
+    unit_show = "(1e4)"
+    plt.text(0.78, 0.058, info_show, ha='left', va='center', transform=ax.transAxes)
+    plt.text(-0.07, 1.02, unit_show, ha='left', va='center', transform=ax.transAxes)
     plt.legend(loc='upper left')
     plt.grid()
     plt.savefig(save_path + '/Pred_' + model_name + '.png')
-#
-# def plot_history(y, model_name):
-#
-#     plt.plot(y.history['loss'])
-#     plt.xlabel('epochs')
-#     plt.ylabel('loss')
-#     plt.grid()
-#     plt.savefig(save_path + '/loss_' + model_name + '.png')
+    plt.show()
+
+
+def connect_array(pre_array, add_array):
+    if pre_array == []:
+        pre_array = add_array
+    else:
+        pre_array = np.concatenate((pre_array, add_array))
+    return pre_array
+
 
 def plot_residuals(y, y_pred, model_name):
     residuals = y_pred - y
     res_abs = np.abs(residuals)
-    th_1 = 0.025  # Define this value in your case
-    th_2 = 0.05  # Define this value in your case
+    th_1 = 0.5  # Define this value in your case
+    th_2 = 1  # Define this value in your case
     r1_idx = np.where(res_abs <= th_1)
     r2_idx = np.where((res_abs > th_1) & (res_abs <= th_2))
     r3_idx = np.where(res_abs > th_2)
@@ -142,12 +145,14 @@ def plot_residuals(y, y_pred, model_name):
 
     MSE, MAE, RMSE, R2_Score = score_calculation(y, y_pred)
     info_show = 'MSE: ' + str(MSE) + '\n' \
-                'MAE: ' + str(MAE) + '\n' \
-                'RMSE: ' + str(RMSE) + '\n' \
-                'R2 Score: ' + str(R2_Score) + '\n'
+                                     'MAE: ' + str(MAE) + '\n' \
+                                                          'RMSE: ' + str(RMSE) + '\n' \
+                                                                                 'R2 Score: ' + str(R2_Score) + '\n'
+    unit_show = "(1e4)"
     plt.text(0.0, 0.05, info_show, ha='left', va='center', transform=ax.transAxes)
-
+    plt.text(0.2, 1.02, unit_show, ha='left', va='center', transform=ax.transAxes)
     plt.savefig(save_path + '/Res_' + model_name + '.png')
+    plt.show()
 
 
 df = pd.read_csv('bmw.csv')
@@ -162,86 +167,91 @@ data_x = np.hstack([data_x1, data_x2])
 scalex = MinMaxScaler(feature_range=(0, 1))
 data_x = scalex.fit_transform(data_x)
 scaley = MinMaxScaler(feature_range=(0, 1))
+print(data_y.shape)
 data_y = scaley.fit_transform(data_y)
 data_y = data_y.reshape(-1, )
 
 kf = KFold(n_splits=10, shuffle=True)
 (x_train, x_test), (y_train, y_test) = np.split(data_x, [int(len(data_x) * 0.8)], axis=0), \
                                        np.split(data_y, [int(len(data_y) * 0.8)], axis=0)
-
-########## Knn ##########
-for train_index, test_index in kf.split(data_x):
-    kng = KNeighborsRegressor(n_neighbors=5)
-    kng.fit(data_x[train_index], data_y[train_index])
-    prediction = kng.predict(data_x[test_index])
-    plot_pred(data_y[test_index], prediction, 'KNN')
-    plot_residuals(data_y[test_index], prediction, 'KNN')
-    # pred_mse = mean_squared_error(data_y[test_index], prediction)
-    # pred_mae = mean_absolute_error(data_y[test_index], prediction)
-    # pred_r2 = r2_score(data_y[test_index], prediction)
-    # mse_sorce1.append(pred_mse)
-    # mae_sorce1.append(pred_mae)
-    # r2_sorce1.append(pred_r2)
-
-########## SVR ##########
-for train_index, test_index in kf.split(data_x):
-    poly_svr = SVR(kernel='linear')
-    poly_svr.fit(data_x[train_index], data_y[train_index])
-    poly_predict = poly_svr.predict(data_x[test_index])
-    plot_pred(data_y[test_index], poly_predict, 'SVR')
-    plot_residuals(data_y[test_index], poly_predict, 'SVR')
-    # pred_mse = mean_squared_error(data_y[test_index], poly_predict)
-    # pred_mae = mean_absolute_error(data_y[test_index], poly_predict)
-    # pred_r2 = r2_score(data_y[test_index], poly_predict)
-    # mse_sorce2.append(pred_mse)
-    # mae_sorce2.append(pred_mae)
-    # r2_sorce2.append(pred_r2)
-
-########## Decision Tree ##########
-for train_index, test_index in kf.split(data_x):
-    clf = tree.DecisionTreeRegressor()
-    clf = clf.fit(data_x[train_index], data_y[train_index])
-    predict = clf.predict(data_x[test_index])
-    plot_pred(data_y[test_index], predict, 'Decision Tree')
-    plot_residuals(data_y[test_index], predict, 'Decision Tree')
-    # pred_mse = mean_squared_error(data_y[test_index], predict)
-    # pred_mae = mean_absolute_error(data_y[test_index], predict)
-    # pred_r2 = r2_score(data_y[test_index], predict)
-    # mse_sorce4.append(pred_mse)
-    # mae_sorce4.append(pred_mae)
-    # r2_sorce4.append(pred_r2)
-
+# y_array = []
+# predict_array = []
+#
+# ########## Knn ##########
+# for train_index, test_index in kf.split(data_x):
+#     kng = KNeighborsRegressor(n_neighbors=5)
+#     kng.fit(data_x[train_index], data_y[train_index])
+#     prediction = kng.predict(data_x[test_index])
+#     predict_array = connect_array(predict_array, prediction)
+#     y_array = connect_array(y_array, data_y[test_index])
+# predict_array = predict_array.reshape(-1, 1)
+# predict_array = scaley.inverse_transform(predict_array)
+# y_array = y_array.reshape(-1, 1)
+# y_array = scaley.inverse_transform(y_array)
+# predict_array = predict_array / 10000
+# y_array = y_array / 10000
+# plot_pred(y_array, predict_array, 'KNN')
+# plot_residuals(y_array, predict_array, 'KNN')
+# np.savetxt("KNN_predict.txt", predict_array)
+# np.savetxt("KNN_test.txt", y_array)
+#
+# y_array = []
+# predict_array = []
+# ########## SVR ##########
+# for train_index, test_index in kf.split(data_x):
+#     poly_svr = SVR(kernel='linear')
+#     poly_svr.fit(data_x[train_index], data_y[train_index])
+#     poly_predict = poly_svr.predict(data_x[test_index])
+#     predict_array = connect_array(predict_array, poly_predict)
+#     y_array = connect_array(y_array, data_y[test_index])
+# predict_array = predict_array.reshape(-1, 1)
+# predict_array = scaley.inverse_transform(predict_array)
+# y_array = y_array.reshape(-1, 1)
+# y_array = scaley.inverse_transform(y_array)
+# predict_array = predict_array / 10000
+# y_array = y_array / 10000
+# plot_pred(y_array, predict_array, 'SVR')
+# plot_residuals(y_array, predict_array, 'SVR')
+# np.savetxt("SVR_predict.txt", predict_array)
+# np.savetxt("SVR_test.txt", y_array)
+#
+# y_array = []
+# predict_array = []
+# ########## Decision Tree ##########
+# for train_index, test_index in kf.split(data_x):
+#     clf = tree.DecisionTreeRegressor()
+#     clf = clf.fit(data_x[train_index], data_y[train_index])
+#     predict = clf.predict(data_x[test_index])
+#     predict_array = connect_array(predict_array, predict)
+#     y_array = connect_array(y_array, data_y[test_index])
+# predict_array = predict_array.reshape(-1, 1)
+# predict_array = scaley.inverse_transform(predict_array)
+# y_array = y_array.reshape(-1, 1)
+# y_array = scaley.inverse_transform(y_array)
+# predict_array = predict_array / 10000
+# y_array = y_array / 10000
+# plot_pred(y_array, predict_array, 'Decision Tree')
+# plot_residuals(y_array, predict_array, 'Decision Tree')
+# np.savetxt("DT_predict.txt", predict_array)
+# np.savetxt("DT_test.txt", y_array)
+#
+y_array = []
+predict_array = []
 ########## Random Forest Regression ##########
 for train_index, test_index in kf.split(data_x):
     regression = RandomForestRegressor(n_estimators=10, random_state=0)
     regression.fit(data_x[train_index], data_y[train_index])
     predict = regression.predict(data_x[test_index])
-    plot_pred(data_y[test_index], predict, 'Random Forest Regression')
-    plot_residuals(data_y[test_index], predict, 'Random Forest Regression')
-    # pred_mse = mean_squared_error(data_y[test_index], predict)
-    # pred_mae = mean_absolute_error(data_y[test_index], predict)
-    # pred_r2 = r2_score(data_y[test_index], predict)
-    # mse_sorce5.append(pred_mse)
-    # mae_sorce5.append(pred_mae)
-    # r2_sorce5.append(pred_r2)
+    predict_array = connect_array(predict_array, predict)
+    y_array = connect_array(y_array, data_y[test_index])
+predict_array = predict_array.reshape(-1, 1)
+predict_array = scaley.inverse_transform(predict_array)
+y_array = y_array.reshape(-1, 1)
+y_array = scaley.inverse_transform(y_array)
+predict_array = predict_array / 10000
+y_array = y_array / 10000
+plot_pred(y_array, predict_array, 'Random Forest Regression')
+plot_residuals(y_array, predict_array, 'Random Forest Regression')
+np.savetxt("RF_predict.txt", predict_array)
+np.savetxt("RF_test.txt", y_array)
 
-# print("Knn_mse = ", np.mean(mse_sorce1))
-# print('SVR_mse = ', np.mean(mse_sorce2))
-# print('Decision Tree_mse = ', np.mean(mse_sorce4))
-# print('Random Forest Regression_mse = ', np.mean(mse_sorce5))
-#
-# print("Knn_rmse = ", np.sqrt(np.mean(mse_sorce1)))
-# print('SVR_rmse = ',  np.sqrt(np.mean(mse_sorce2)))
-# print('Decision Tree_rmse = ',  np.sqrt(np.mean(mse_sorce4)))
-# print('Random Forest Regression_rmse = ',  np.sqrt(np.mean(mse_sorce5)))
-#
-#
-# print("Knn_mae = ", np.mean(mae_sorce1))
-# print('SVR_mae = ', np.mean(mae_sorce2))
-# print('Decision Tree_mae = ', np.mean(mae_sorce4))
-# print('Random Forest Regression_mae = ', np.mean(mae_sorce5))
-#
-# print("Knn_r2 = ", np.mean(r2_sorce1))
-# print('SVR_r2 = ', np.mean(r2_sorce2))
-# print('Decision Tree_r2 = ', np.mean(r2_sorce4))
-# print('Random Forest Regression_r2 = ', np.mean(r2_sorce5))

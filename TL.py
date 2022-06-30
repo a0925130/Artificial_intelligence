@@ -25,10 +25,10 @@ save_path = r"C:\Users\SingYan\PycharmProjects\Artificial_intelligence"
 
 
 def score_calculation(y, y_pred):
-    MAE = np.round(mean_absolute_error(y, y_pred), 5)
-    RMSE = np.round(np.sqrt(mean_squared_error(y, y_pred)), 5)
-    R2_Score = np.round(r2_score(y, y_pred), 5)
-    MSE = np.round(mean_squared_error(y, y_pred), 5)
+    MAE = np.round(mean_absolute_error(y, y_pred), 4)
+    RMSE = np.round(np.sqrt(mean_squared_error(y, y_pred)), 4)
+    R2_Score = np.round(r2_score(y, y_pred), 4)
+    MSE = np.round(mean_squared_error(y, y_pred), 4)
 
     print('MSE: ' + str(MSE))
     print('MAE: ' + str(MAE))
@@ -42,8 +42,8 @@ def plot_pred(y, y_pred, model_name):
     residuals = y_pred - y
     res_abs = np.abs(residuals)
 
-    th_1 = 0.025  # Define this value in your case
-    th_2 = 0.05  # Define this value in your case
+    th_1 = 0.5  # Define this value in your case
+    th_2 = 1.0  # Define this value in your case
     r1_idx = np.where(res_abs <= th_1)
     r2_idx = np.where((res_abs > th_1) & (res_abs <= th_2))
     r3_idx = np.where(res_abs > th_2)
@@ -69,7 +69,9 @@ def plot_pred(y, y_pred, model_name):
                                      'MAE: ' + str(MAE) + '\n' \
                                                           'RMSE: ' + str(RMSE) + '\n' \
                                                                                  'R2 Score: ' + str(R2_Score) + '\n'
-    plt.text(0.7, 0.09, info_show, ha='left', va='center', transform=ax.transAxes)
+    unit_show = "(1e4)"
+    plt.text(0.78, 0.058, info_show, ha='left', va='center', transform=ax.transAxes)
+    plt.text(-0.07, 1.02, unit_show, ha='left', va='center', transform=ax.transAxes)
     plt.legend(loc='upper left')
     plt.grid()
     plt.savefig(save_path + '/Pred_' + model_name + '.png')
@@ -88,8 +90,8 @@ def plot_history(y, model_name):
 def plot_residuals(y, y_pred, model_name):
     residuals = y_pred - y
     res_abs = np.abs(residuals)
-    th_1 = 0.025  # Define this value in your case
-    th_2 = 0.05  # Define this value in your case
+    th_1 = 0.5  # Define this value in your case
+    th_2 = 1.0  # Define this value in your case
     r1_idx = np.where(res_abs <= th_1)
     r2_idx = np.where((res_abs > th_1) & (res_abs <= th_2))
     r3_idx = np.where(res_abs > th_2)
@@ -128,7 +130,9 @@ def plot_residuals(y, y_pred, model_name):
                                      'MAE: ' + str(MAE) + '\n' \
                                                           'RMSE: ' + str(RMSE) + '\n' \
                                                                                  'R2 Score: ' + str(R2_Score) + '\n'
+    unit_show = "(1e4)"
     plt.text(0.0, 0.05, info_show, ha='left', va='center', transform=ax.transAxes)
+    plt.text(0.2, 1.02, unit_show, ha='left', va='center', transform=ax.transAxes)
 
     plt.savefig(save_path + '/Res_' + model_name + '.png')
 
@@ -161,7 +165,6 @@ def membership_function(data, ranges):
     return zz1
 
 
-
 df = pd.read_csv('bmw.csv')
 labelencoder = LabelEncoder()
 df['model'] = labelencoder.fit_transform(df['model'])
@@ -178,6 +181,13 @@ scaley = MinMaxScaler(feature_range=(0, 1))
 data_y = scaley.fit_transform(data_y)
 data_y = data_y.reshape(-1, )
 
+
+def connect_array(pre_array, add_array):
+    if pre_array == []:
+        pre_array = add_array
+    else:
+        pre_array = np.concatenate((pre_array, add_array))
+    return pre_array
 
 
 def run(sol):
@@ -224,6 +234,7 @@ class My_Problem(Problem):
         self.fitness_array = [0]
         self.count = 0
         self.count_array = [0]
+
     def _evaluate(self, sol):
         val = run(sol)
         if self.best_score < val:
@@ -234,9 +245,8 @@ class My_Problem(Problem):
         return val
 
 
-
-iteration = 20
-particle = 5
+iteration = 20 #20
+particle = 5 #5
 kf = KFold(n_splits=10, shuffle=True)
 count_kfold = 0
 predict_array = []
@@ -250,8 +260,10 @@ for train_idx, test_idx in kf.split(data_x):
                 enable_logging=True)
     algo = GreyWolfOptimizer(population_size=particle)
     best = algo.run(task)
-    train_data_fuzzy = membership_function(train_x, [best[0][0], best[0][0]+best[0][1], best[0][0]+best[0][1]+best[0][2]])
-    test_data_fuzzy = membership_function(test_x, [best[0][0], best[0][0]+best[0][1], best[0][0]+best[0][1]+best[0][2]])
+    train_data_fuzzy = membership_function(train_x,
+                                           [best[0][0], best[0][0] + best[0][1], best[0][0] + best[0][1] + best[0][2]])
+    test_data_fuzzy = membership_function(test_x,
+                                          [best[0][0], best[0][0] + best[0][1], best[0][0] + best[0][1] + best[0][2]])
     pre_x, train_x = train_data_fuzzy[0: int(len(train_data_fuzzy) * 0.8)], \
                      train_data_fuzzy[int(len(train_data_fuzzy) * 0.8)::]
     pre_y, train_y = train_y[0: int(len(train_y) * 0.8)], train_y[int(len(train_y) * 0.8)::]
@@ -279,18 +291,17 @@ for train_idx, test_idx in kf.split(data_x):
     nn_test = np.stack((RF_predict_r, KNN_predict_r))
     nn_test = nn_test.T
     predict = model.predict(nn_test)
-    predict = predict.reshape(-1, )
-    predict = scaley.inverse_transform(predict)
-    test_y = scaley.inverse_transform(test_y)
-    predict_array.append(predict)
-    test_array.append(test_y)
+    predict_array = connect_array(predict_array, predict)
+    test_array = connect_array(test_array, test_y)
 
-plot_pred(test_array, predict_array, 'TL_CSO' + str(count_kfold))
-plot_residuals(test_array, predict_array, 'TL_CSO' + str(count_kfold))
-plt.xlabel('Evaluation')
-plt.ylabel('Fitness Value')
-plt.title('Learning Curve')
-plt.grid()
-plt.legend()
-plt.show()
-plt.savefig(save_path + '/Learning_Curve.png')
+predict_array = predict_array.reshape(-1, 1)
+test_array = test_array.reshape(-1, 1)
+predict_array = scaley.inverse_transform(predict_array)
+test_array = scaley.inverse_transform(test_array)
+predict_array = predict_array/10000
+test_array = test_array/10000
+plot_pred(test_array, predict_array, 'Transfer Learning')
+plot_residuals(test_array, predict_array, 'Transfer Learning')
+np.savetxt("TL_predict.txt", predict_array)
+np.savetxt("TL_test.txt", test_array)
+
